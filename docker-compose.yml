@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  streamlit-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-worker-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      # API Configuration - adjust based on your deployment
+      - API_BASE_URL=${API_BASE_URL:-http://localhost:8000/ai}
+      - TEST_API_KEY=${TEST_API_KEY}
+      # Streamlit Configuration
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_ENABLE_CORS=false
+      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    volumes:
+      # Mount current directory for development (optional - remove in production)
+      - ./streamlit_app.py:/app/streamlit_app.py:ro
+      - ./.env:/app/.env:ro
+      # Persist uploaded files (optional)
+      - streamlit_uploads:/app/uploads
+    networks:
+      - ai-worker-network
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+
+  # Optional: PostgreSQL Database
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: ai-worker-db
+  #   environment:
+  #     - POSTGRES_USER=${DB_USER:-aiworker}
+  #     - POSTGRES_PASSWORD=${DB_PASSWORD:-secretpassword}
+  #     - POSTGRES_DB=${DB_NAME:-aiworker_db}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - ai-worker-network
+  #   restart: unless-stopped
+
+  # Optional: Redis Cache
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: ai-worker-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - ai-worker-network
+  #   restart: unless-stopped
+
+  # Optional: Nginx Reverse Proxy
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: ai-worker-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - streamlit-frontend
+  #     - fastapi-backend
+  #   networks:
+  #     - ai-worker-network
+  #   restart: unless-stopped
+
+networks:
+  ai-worker-network:
+    driver: bridge
+
+volumes:
+  streamlit_uploads:
+  backend_data:
+  # postgres_data:
+  # redis_data:
